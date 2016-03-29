@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title > Carom Board </title>
+        <script src = "js/three.min.js" type = "text/javascript" > </script> 
+    </head>
+    <body>
+        <script type = "text/javascript">
+            
+            var WIDTH = 1000;
+            var HEIGHT = 800;
+
+            //camera attributes
+            var VIEW_ANGLE = 45,
+            ASPECT = WIDTH/HEIGHT,
+            NEAR = 0.1,
+            FAR = 10000;
+
+            //creating a raycaster
+            var raycaster = new THREE.Raycaster();
+            var mouse = new THREE.Vector2();
+            
+            //create webgl renderer, camera and scene
+            var renderer = new THREE.WebGLRenderer(
+                    {
+                        alpha:true
+                    });
+            var camera = new THREE.PerspectiveCamera(
+                    45,
+                    ASPECT,
+                    NEAR,
+                    FAR);
+            
+
+            
+            var scene = new THREE.Scene();
+            var caromFrame = {};
+            var coins = [];
+            var striker ;
+
+            function addCaromFrame() {
+
+                //drawing side walls
+                var xs = [20, 200, 20, 200];
+                var ys = [200, 20, 200, 20];
+                var positionx = [-100, 0, 100, 0];
+                var positiony = [0, 100, 0, -100];
+                caromFrame.corners = [];
+                for( var i = 0; i< 4; i++) {
+                    caromFrame.corners[i] = new THREE.Mesh(
+                        new THREE.CubeGeometry(
+                            xs[i],
+                            ys[i],
+                            20), new THREE.MeshLambertMaterial(
+                            {
+                                color: 0xFFFF00
+                            })
+                        );
+                    caromFrame.corners[i].position.x = positionx[i];
+                    caromFrame.corners[i].position.y = positiony[i];
+                    scene.add(caromFrame.corners[i]);
+                } 
+                
+                //drawing base of board
+                caromFrame.base = new THREE.Mesh(
+                        new THREE.CubeGeometry(
+                            200,
+                            200,
+                            10 ), new THREE.MeshLambertMaterial(
+                                {
+                                    color : 0xFFFF99
+                                })
+                                
+                        );
+                caromFrame.base.position.z = -10;
+                scene.add(caromFrame.base);
+
+                //drawing the end pockets
+                var positionx = [-78, 78, 78, -78];
+                var positiony = [78, 78, -78, -78];
+                caromFrame.circle = [];
+
+                for( var i = 0; i<4; i++) {
+                    caromFrame.circle[i] = new THREE.Mesh(
+                        new THREE.CircleGeometry(
+                            10,
+                            20), new THREE.MeshLambertMaterial(
+                            {
+                                color: 0xFFA3E6
+                            })
+                        );
+                    caromFrame.circle[i].position.x = positionx[i];
+                    caromFrame.circle[i].position.y = positiony[i];
+                    caromFrame.circle[i].position.z = -5;
+                    scene.add(caromFrame.circle[i]);
+                }
+
+                //drawing the rectangular lines
+                var vertex = [[-65, 65], [65, 65], [65, -65], [-65,-65] ];
+                var tempShape = new THREE.Shape();
+                tempShape.moveTo(-65, -65);
+                for( i =0; i< 4; i++) {
+                    tempShape.lineTo( vertex[i][0], vertex[i][1]);
+                }
+                var tempGeom = new THREE.ShapeGeometry(tempShape);
+                caromFrame.centreRect = new THREE.Mesh(tempGeom, new THREE.MeshLambertMaterial( 
+                    {
+                        color: 0x000000
+                    })
+                );
+                caromFrame.centreEdges = new THREE.EdgesHelper(caromFrame.centreRect, 0x000000);
+                scene.add(caromFrame.centreEdges);
+                
+                //drawing the centre circle 
+            
+                caromFrame.centreCircle = new THREE.Mesh(
+                    new THREE.CircleGeometry(
+                        35,
+                        400), new THREE.MeshLambertMaterial(
+                        {
+                            color: 0x000000
+                        })
+                    );
+                caromFrame.centreCircleEdges = new THREE.EdgesHelper(
+                    caromFrame.centreCircle, 0x000000);
+                scene.add(caromFrame.centreCircleEdges);
+                       
+            }
+
+            function addInitCoins() {
+                var radius = 5, height = 5;
+                //add queen
+                var temp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(
+                        radius, 
+                        radius,
+                        height,
+                        40), new THREE.MeshLambertMaterial(
+                        {
+                            color: 0xFF0000
+                        })
+                    );
+                //temp.position.z = 10;
+                temp.position.x = 0;
+                temp.position.y =0;
+                temp.rotation.x = 90;
+                scene.add(temp);
+                coins.push(temp);
+
+                var innerRad = 12;
+                var theta = 0;
+                for(i = 0; i<2; i++) {
+                    if( i===0 ) {
+                        innerRad = 12;
+                        init = 0;
+                        inc = 60;
+                    }
+                    else {
+                        innerRad = 25;
+                        init = 90;
+                        inc = 30;
+                    }
+                    for( theta = init, ct = 0; theta < init+360; theta += inc, ct++) {
+                        if (ct % 2 === 0) col = 0x000000;
+                        else col = 0xFFFFFF;
+                        var temp = (Math.PI / 180)*theta;
+                        var circle = new THREE.Mesh(
+                            new THREE.CylinderGeometry(
+                                radius,
+                                radius,
+                                height,
+                                40), new THREE.MeshLambertMaterial(
+                                {
+                                    color: col
+                                })
+                            );
+                    //  circle.position.z
+                        circle.position.x = innerRad* Math.sin(temp);
+                        circle.position.y = innerRad* Math.cos(temp);
+                        circle.rotation.x = 90;
+                        scene.add(circle);
+                        coins.push(circle); 
+                    }
+                }
+
+                striker = new THREE.Mesh(
+                    new THREE.CylinderGeometry(
+                        8,
+                        8,
+                        7,
+                        40), new THREE.MeshLambertMaterial(
+                        {
+                            color: 0x00FF00
+                        })
+                    );
+                striker.rotation.x = 90;
+                scene.add(striker);
+            }
+
+            function resetStriker () {
+                striker.position.y = -60;
+                striker.position.x = 0;
+            }
+
+            function render() {
+                // //update the picking ray with the camera and mouse position
+                // raycaster.setFromCamera(mouse, camera);
+
+                // //calculate objects intersecting the picking ray
+                // var intersects = raycaster.intersectObjects(scene.children);
+
+                // for( var i = 0; i < intersects.length; i++ ) {
+                //     intersects[i].object.material.color.set(0xff0000);
+                //     console.log(intersects[i]);
+                // }
+
+                renderer.setClearColor(0xFFFFFF, 0);
+                renderer.render(scene, camera);
+            }
+
+            function playerView() {
+                camera.position.set(0, -300, 300);
+                camera.up = new THREE.Vector3(0,0,1);
+                camera.lookAt(new THREE.Vector3(0,0,0));
+            }
+
+            function onMouseMove(event) {
+                mouse.x = (event.clientX / window.innerWidth) *2 -1;
+                mouse.y = -(event.clientY/window.innerHeight) *2 +1;
+
+                     //update the picking ray with the camera and mouse position
+                raycaster.setFromCamera(mouse, camera);
+
+                //calculate objects intersecting the picking ray
+                var intersects = raycaster.intersectObjects(scene.children);
+
+                for( var i = 0; i < intersects.length; i++ ) {
+                    intersects[i].object.material.color.set(0xff0000);
+                    //alert('hello');
+                    console.log(intersects[i]);
+                }
+            }
+
+            function onKeyDown(e) {
+                switch(e.which || e.keyCode) {
+                    case 37:    //left
+                    striker.translateX(-15);
+                    console.log("aur hero");
+                    break;
+                } 
+            }
+
+       //     playerView();
+            scene.add(camera);
+            //pull the camera back
+            camera.position.z = 400;
+
+            //start the renderer
+            renderer.setSize(WIDTH, HEIGHT);
+
+            //attach the renderer-supplied DOM element
+            document.body.appendChild( renderer.domElement);
+
+            
+            addCaromFrame();
+            addInitCoins();
+            resetStriker();
+            
+            var pointLight = new THREE.PointLight(0xFFFFFF);
+
+            pointLight.position.x = 10;
+            pointLight.position.y = 50;
+            pointLight.position.z = 130;
+
+            scene.add(pointLight);
+            console.log("hello there");
+            
+            //event listeners
+            window.addEventListener( 'mousedown', onMouseMove, false);
+
+            document.addEventListener('keydown', onKeyDown, false);
+            // var onkeydown = function(e) {
+            //     e = e || window.event;
+            //     switch(e.which || e.keyCode) {
+            //         case 37:    //left
+            //             striker.translateX = -5;
+            //             console.log("kya be");
+            //         break;
+
+            //         case 38:    //up 
+            //         break;
+
+            //         case 39:    //right
+            //             striker.position.x += 5;
+            //         break;
+
+            //         case 40:    //down
+            //         break;
+            //     }
+            //}
+
+            window.requestAnimationFrame(render);
+           // renderer.setClearColor(0xFFFFFF, 0);
+           // renderer.render(scene, camera);
+            
+        </script>
+    </body>
+</html>
