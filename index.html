@@ -2,7 +2,9 @@
 <html>
     <head>
         <title > Carom Board </title>
-        <script src = "js/three.min.js" type = "text/javascript" > </script> 
+        <script src = "js/three.min.js" type = "text/javascript" > </script>
+        <script src = "js/THREEx.KeyboardState.js" type = "text/javascript" ></script> 
+        <script src = "js/KeyboardState.js" type = "text/javascript"> </script>
     </head>
     <body>
         <script type = "text/javascript">
@@ -19,6 +21,9 @@
             //creating a raycaster
             var raycaster = new THREE.Raycaster();
             var mouse = new THREE.Vector2();
+
+            var keyboard = new KeyboardState();
+           // var keyboard2 = new THREEx.KeyboardState();
             
             //create webgl renderer, camera and scene
             var renderer = new THREE.WebGLRenderer(
@@ -37,6 +42,35 @@
             var caromFrame = {};
             var coins = [];
             var striker ;
+
+            function init() {
+                addCaromFrame();
+                addInitCoins();
+                //     playerView();
+                scene.add(camera);
+                //pull the camera back
+                camera.position.z = 400;
+
+                //start the renderer
+                renderer.setSize(WIDTH, HEIGHT);
+
+                //attach the renderer-supplied DOM element
+                document.body.appendChild( renderer.domElement);
+
+            
+                //addCaromFrame();
+                //addInitCoins();
+                //            resetStriker();
+            
+                var pointLight = new THREE.PointLight(0xFFFFFF);
+
+                pointLight.position.x = 10;
+                pointLight.position.y = 50;
+                pointLight.position.z = 130;
+
+                scene.add(pointLight);
+               // console.log("hello there");
+            }
 
             function addCaromFrame() {
 
@@ -144,6 +178,11 @@
                 temp.position.x = 0;
                 temp.position.y =0;
                 temp.rotation.x = 90;
+                temp.position.z = -3;
+                temp.velx = 0;
+                temp.vely = 0;
+                temp.power = 0;
+                temp.theta = 0;
                 scene.add(temp);
                 coins.push(temp);
 
@@ -178,6 +217,11 @@
                         circle.position.x = innerRad* Math.sin(temp);
                         circle.position.y = innerRad* Math.cos(temp);
                         circle.rotation.x = 90;
+                        circle.position.z = -3
+                        circle.power = 0;
+                        circle.velx = 0;
+                        circle.vely = 0;
+                        circle.theta = 0;
                         scene.add(circle);
                         coins.push(circle); 
                     }
@@ -195,11 +239,228 @@
                     );
                 striker.rotation.x = 90;
                 scene.add(striker);
+                resetStriker();
             }
 
             function resetStriker () {
+                console.log("hello");
                 striker.position.y = -60;
                 striker.position.x = 0;
+                striker.isMoving = 0;
+                striker.velx = 0;
+                striker.vely = 0;
+                striker.power = 0;
+                striker.theta = 30;
+                var angle = (Math.PI/180 )*30;
+                var geometry = new THREE.Geometry();
+                geometry.vertices.push(new THREE.Vector3(striker.position.x, striker.position.y, 0));
+                geometry.vertices.push(new THREE.Vector3(striker.position.x + 40*Math.cos(angle), striker.position.y + 40*Math.sin(angle), 0));
+                striker.line = new THREE.Line(
+                    geometry, new THREE.LineBasicMaterial (
+                    {
+                        color: 0x0000ff
+                    })
+                );
+                scene.add(striker.line);
+            }
+
+            function checkCollissionWithWalls(striker, dist) {
+
+
+                //collision with left
+                if( Math.abs(caromFrame.corners[0].position.x - striker.position.x) < dist || Math.abs(caromFrame.corners[2].position.x - striker.position.x) < dist) {
+                   // console.log("What the hell");
+                    striker.theta = 180 - striker.theta;
+                }
+
+                if(Math.abs(caromFrame.corners[1].position.y - striker.position.y) < dist || Math.abs(caromFrame.corners[3].position.y - striker.position.y )< dist) {
+                   // console.log("what the double hell");
+                    striker.theta = 360 - striker.theta;
+                }
+            }
+
+            function checkCollission(circle1, circle2, dist) {
+                var x1 = circle1.position.x;
+                var x2 = circle2.position.x;
+                var y1 = circle1.position.y;
+                var y2 = circle2.position.y;
+
+                if( Math.abs(Math.sqrt((x1 -x2)*(x1-x2) + (y1 - y2)*(y1-y2))) < dist) {
+                    //console.log("collision detected");
+                    collideObject(circle1, circle2);
+                }
+            }
+
+            function collideObject(circle1, circle2) {
+                console.log(circle1, circle2);
+                var angleOfCollision = (180/Math.PI)*Math.atan((circle2.position.y - circle1.position.y)/(circle2.position.x - circle1.position.x));
+
+                var angle1 = circle1.theta - angleOfCollision;
+                var angle2 = circle2.theta - angleOfCollision;
+
+                var v1 = circle1.power;
+                var v2 = circle2.power;
+                var e = 1;
+                var v2x = 1/2*((1+e)*v1*Math.cos((Math.PI/180)*angle1) + (1-e)*v2*Math.cos((Math.PI/180)*angle2));
+                var v1x = 1/2*((1-e)*v1*Math.cos((Math.PI/180)*angle1) + (1+e)*v2*Math.cos((Math.PI/180)*angle2));
+
+                var v1y = v1*Math.sin((Math.PI/180)*angle1);
+                var v2y = v2*Math.sin((Math.PI/180)*angle2);
+
+                circle1.power = Math.sqrt( v1x*v1x + v1y*v1y);
+                circle2.power = Math.sqrt( v2x*v2x + v2y*v2y);
+
+                circle1.theta = angleOfCollision + (180/Math.PI)*Math.atan(v1y/v1x);
+                circle2.theta = angleOfCollision + (180/Math.PI)*Math.atan(v2y/v2x);
+
+            }
+
+            function update() {
+                keyboard.update();
+
+                checkCollissionWithWalls(striker, 18);
+
+                for(var i=0; i<4; i++) {
+                    if(checkCollission(striker, caromFrame.circle[i], 15)) {
+                        console.log("out ho gya bete");
+                        resetStriker(); 
+                    }
+                }
+                for( var i =0; i<coins.length; i++) 
+                    checkCollissionWithWalls(coins[i], 15);
+
+                for( var i = 0; i<coins.length; i++) {
+                    checkCollission(striker, coins[i], 13);
+                }
+
+                for(var i = 0; i < coins.length; i++) {
+                    for(j = 0; j<coins.length; j++) {
+                        if(i!=j) {
+                            checkCollission(coins[i], coins[j], 10);
+                        }
+                    }
+                }
+
+                if(striker.isMoving && striker.power > 0 ){
+                    if(striker.position.x  >= 90 && striker.velx > 0) {
+
+                    }
+                    else if( striker.position.x <= -90 && striker.velx < 0 ) {
+
+                    }
+                    else {
+                    var angle = (Math.PI/180)*striker.theta;
+
+                    striker.translateX(striker.power*Math.cos(angle));
+                    striker.translateY(-1*striker.power*Math.sin(angle));
+                    striker.position.z = -3;
+                    }
+                 //   striker.power -= 0.02;
+                }
+
+                if(striker.isMoving && striker.power <= 0 ) {
+                    console.log("the striker ceized");
+                    resetStriker();
+                }
+
+                for( var i = 0; i< coins.length; i++) {
+                  //  if(Math.abs(coins[i].position.x) <= 87 && Math.abs(coins[i].position.y) <= 87) {
+                        if(coins[i].position.x  >= 90 && coins[i].velx > 0) {
+                            coins[i].theta += 90;
+
+
+                    }
+                    else if( coins[i].position.x <= -90 && coins[i].velx < 0 ) {
+                            coins[i].theta -= 90;
+                    }
+                    else {
+                        var angle = (Math.PI/180)*coins[i].theta;
+                        coins[i].translateX(coins[i].power*Math.cos(angle));
+                        coins[i].translateY(-1*coins[i].power*Math.sin(angle));
+                        coins[i].position.z = -3;
+                    }
+                    
+                //    if(coins[i].power > 0)
+                //        coins[i].power -= 0.02;
+
+                }
+
+              //  console.log("hello");
+                if(keyboard.pressed("left")) {
+                    //console.log("balle balle");
+                    if(striker.position.x > -65) {
+                        striker.translateX(-1);
+                        striker.line.translateX(-1);
+                    }
+
+                }
+
+                if(keyboard.pressed("right")) {
+                    if(striker.position.x < 65){
+                        striker.translateX(1);
+                        striker.line.translateX(1);
+                    }
+                }
+
+                if(keyboard.pressed("A") && striker.theta < 180) {
+                    //   console.log ("abe a record ho gya ");
+                    //var axis = new THREE.Vector3(0,0,1);
+                    //var angle = Math.PI/150;
+                    //striker.line.applyAxisAngle(axis, angle);
+                    scene.remove(striker.line);
+                    striker.theta += 1;
+                  //  striker.line.rotation.x = 10;
+                    var angle = (Math.PI/180 )*striker.theta;
+                    var geometry = new THREE.Geometry();
+                    geometry.vertices.push(new THREE.Vector3(striker.position.x, striker.position.y, 0));
+                    geometry.vertices.push(new THREE.Vector3(striker.position.x + 40*Math.cos(angle), striker.position.y + 40*Math.sin(angle), 0));
+                    striker.line = new THREE.Line(
+                        geometry, new THREE.LineBasicMaterial (
+                        {
+                            color: 0x0000ff
+                        })
+                    );
+                    scene.add(striker.line);
+                }
+
+                if(keyboard.pressed("D") && striker.theta > 0) {
+                    //   console.log ("abe a record ho gya ");
+                    //var axis = new THREE.Vector3(0,0,1);
+                    //var angle = Math.PI/150;
+                    //striker.line.applyAxisAngle(axis, angle);
+                    scene.remove(striker.line);
+                    striker.theta -= 1;
+                  //  striker.line.rotation.x = 10;
+                    var angle = (Math.PI/180 )*striker.theta;
+                    var geometry = new THREE.Geometry();
+                    geometry.vertices.push(new THREE.Vector3(striker.position.x, striker.position.y, 0));
+                    geometry.vertices.push(new THREE.Vector3(striker.position.x + 40*Math.cos(angle), striker.position.y + 40*Math.sin(angle), 0));
+                    striker.line = new THREE.Line(
+                        geometry, new THREE.LineBasicMaterial (
+                        {
+                            color: 0x0000ff
+                        })
+                    );
+                    scene.add(striker.line);
+                }
+
+                if(keyboard.pressed("Z")) {
+                    striker.power += 0.1;
+                }
+
+                if(keyboard.down("F")) {
+                    if(striker.power > 0) {
+                        striker.isMoving = 1;
+                        scene.remove(striker.line);
+                        var angle = (Math.PI/180)*striker.theta;
+                        striker.translateX(striker.power * Math.cos(angle));
+                        striker.translateY(-1*striker.power*Math.sin(angle));
+                        striker.position.z = -3;
+                        console.log( "angle " + striker.theta);
+                    }
+                }
+
+
             }
 
             function render() {
@@ -213,7 +474,7 @@
                 //     intersects[i].object.material.color.set(0xff0000);
                 //     console.log(intersects[i]);
                 // }
-
+                update();
                 renderer.setClearColor(0xFFFFFF, 0);
                 renderer.render(scene, camera);
             }
@@ -224,84 +485,16 @@
                 camera.lookAt(new THREE.Vector3(0,0,0));
             }
 
-            function onMouseMove(event) {
-                mouse.x = (event.clientX / window.innerWidth) *2 -1;
-                mouse.y = -(event.clientY/window.innerHeight) *2 +1;
-
-                     //update the picking ray with the camera and mouse position
-                raycaster.setFromCamera(mouse, camera);
-
-                //calculate objects intersecting the picking ray
-                var intersects = raycaster.intersectObjects(scene.children);
-
-                for( var i = 0; i < intersects.length; i++ ) {
-                    intersects[i].object.material.color.set(0xff0000);
-                    //alert('hello');
-                    console.log(intersects[i]);
-                }
+            function animate() {
+                requestAnimationFrame(animate);
+                render();
+                update();
             }
 
-            function onKeyDown(e) {
-                switch(e.which || e.keyCode) {
-                    case 37:    //left
-                    striker.translateX(-15);
-                    console.log("aur hero");
-                    break;
-                } 
-            }
 
-       //     playerView();
-            scene.add(camera);
-            //pull the camera back
-            camera.position.z = 400;
 
-            //start the renderer
-            renderer.setSize(WIDTH, HEIGHT);
-
-            //attach the renderer-supplied DOM element
-            document.body.appendChild( renderer.domElement);
-
-            
-            addCaromFrame();
-            addInitCoins();
-            resetStriker();
-            
-            var pointLight = new THREE.PointLight(0xFFFFFF);
-
-            pointLight.position.x = 10;
-            pointLight.position.y = 50;
-            pointLight.position.z = 130;
-
-            scene.add(pointLight);
-            console.log("hello there");
-            
-            //event listeners
-            window.addEventListener( 'mousedown', onMouseMove, false);
-
-            document.addEventListener('keydown', onKeyDown, false);
-            // var onkeydown = function(e) {
-            //     e = e || window.event;
-            //     switch(e.which || e.keyCode) {
-            //         case 37:    //left
-            //             striker.translateX = -5;
-            //             console.log("kya be");
-            //         break;
-
-            //         case 38:    //up 
-            //         break;
-
-            //         case 39:    //right
-            //             striker.position.x += 5;
-            //         break;
-
-            //         case 40:    //down
-            //         break;
-            //     }
-            //}
-
-            window.requestAnimationFrame(render);
-           // renderer.setClearColor(0xFFFFFF, 0);
-           // renderer.render(scene, camera);
+            init();
+            animate();
             
         </script>
     </body>
