@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title > Carom Board </title>
+        <title id = "title"> Carom Board </title>
         <script src = "js/three.min.js" type = "text/javascript" > </script>
         <script src = "js/THREEx.KeyboardState.js" type = "text/javascript" ></script> 
         <script src = "js/KeyboardState.js" type = "text/javascript"> </script>
@@ -47,6 +47,9 @@
             var strikerPossibleCollisionWithCoins=[];
             var coinPossibleWalls = [];
             var strikerPossibleCollisionWalls = 0;
+
+            //score
+            var SCORE = 100;
 
             function init() {
                 addCaromFrame();
@@ -188,6 +191,8 @@
                 temp.vely = 0;
                 temp.power = 0;
                 temp.theta = 0;
+                temp.col = "red";
+                temp.isRemoved = 0;
                 scene.add(temp);
                 coins.push(temp);
 
@@ -227,6 +232,11 @@
                         circle.velx = 0;
                         circle.vely = 0;
                         circle.theta = 0;
+                        if( col == 0xFFFFFF)
+                            circle.col = "white";
+                        else
+                            circle.col = "black";
+                        circle.isRemoved = 0;
                         scene.add(circle);
                         coins.push(circle); 
                     }
@@ -346,7 +356,7 @@
 
                 var v1 = circle1.power;
                 var v2 = circle2.power;
-                var e = 1;
+                var e = 0.8;
                 var v2x = 1/2*((1+e)*v1*Math.cos((Math.PI/180)*angle1) + (1-e)*v2*Math.cos((Math.PI/180)*angle2));
                 var v1x = 1/2*((1-e)*v1*Math.cos((Math.PI/180)*angle1) + (1+e)*v2*Math.cos((Math.PI/180)*angle2));
 
@@ -378,13 +388,16 @@
 
 
                 for(var i=0; i<4; i++) {
-                    if(checkCollission(striker, caromFrame.circle[i], 15)) {
+                    if(checkCollission(striker, caromFrame.circle[i], 10)) {
 
                         console.log("out ho gya bete");
+                        SCORE -= 5;
                         resetStriker(); 
                     }
                 }
                 for( var i =0; i<coins.length; i++) {
+                    if( coins[i].isRemoved === 1 )
+                        continue;
                     if( coinPossibleWalls[i] === 0 ) {
                         var flag = checkCollissionWithWalls(coins[i], 15);
                         if(flag === 1) {
@@ -398,7 +411,11 @@
                     }
                 }
 
-                for( var i = 0; i<coins.length; i++) { 
+                for( var i = 0; i<coins.length; i++) {
+
+                    if( coins[i].isRemoved === 1)
+                        continue;
+
                     if(strikerPossibleCollisionWithCoins[i] === 0) {
                         var flag = checkCollission(striker, coins[i], 13);
                         if( flag === 1) {
@@ -412,8 +429,34 @@
                     }
                 }
 
+                for( var i = 0; i < coins.length; i++ ) {
+
+                    if( coins[i].isRemoved === 1)
+                        continue;
+
+                    for( var j = 0; j < 4; j++) {
+                        if( checkCollission(coins[i], caromFrame.circle[j], 7 ) ) {
+                            scene.remove(coins[i]);
+                            coins[i].isRemoved = 1;
+                            if( coins[i].col == "white" ) {
+                                SCORE += 5;
+                            }
+                            else
+                                SCORE -= 20;
+
+                            break;
+                        }
+                    }
+                }
+
                 for(var i = 0; i < coins.length; i++) {
+                    if( coins[i].isRemoved === 1) 
+                        continue;
+
                     for(j = 0; j<coins.length; j++) {
+                        if ( coins[j].isRemoved === 1)
+                            continue;
+
                         if(i!=j) {
                             if( coinPossibleCollision[i][j] === 0) {
                                 var flag = checkCollission(coins[i], coins[j], 10);
@@ -444,7 +487,7 @@
                     striker.translateY(-1*striker.power*Math.sin(angle));
                     striker.position.z = -3;
                     }
-                 //   striker.power -= 0.02;
+                    striker.power -= 0.02;
                 }
 
                 if(striker.isMoving && striker.power <= 0 ) {
@@ -454,8 +497,11 @@
 
                 for( var i = 0; i< coins.length; i++) {
                   //  if(Math.abs(coins[i].position.x) <= 87 && Math.abs(coins[i].position.y) <= 87) {
-                        if(coins[i].position.x  >= 90 && coins[i].velx > 0) {
-                            coins[i].theta += 90;
+                    if(coins[i].isRemoved === 1)
+                        continue;
+
+                    if(coins[i].position.x  >= 90 && coins[i].velx > 0) {
+                        coins[i].theta += 90;
 
 
                     }
@@ -469,8 +515,8 @@
                         coins[i].position.z = -3;
                     }
                     
-                //    if(coins[i].power > 0)
-                //        coins[i].power -= 0.02;
+                    if(coins[i].power > 0)
+                        coins[i].power -= 0.02;
 
                 }
 
@@ -549,7 +595,7 @@
                     }
                 }
 
-
+                document.getElementById('title').innerHTML = "score " + SCORE;
             }
 
             function render() {
