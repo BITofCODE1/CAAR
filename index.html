@@ -17,46 +17,41 @@
             ASPECT = WIDTH/HEIGHT,
             NEAR = 0.1,
             FAR = 10000;
+            var camera = new THREE.PerspectiveCamera(
+                    45,
+                    ASPECT,
+                    NEAR,
+                    FAR);
 
-            //creating a raycaster
-            var raycaster = new THREE.Raycaster();
-            var mouse = new THREE.Vector2();
-
+            //keyboard object to detect the key presses
             var keyboard = new KeyboardState();
-           // var keyboard2 = new THREEx.KeyboardState();
             
             //create webgl renderer, camera and scene
             var renderer = new THREE.WebGLRenderer(
                     {
                         alpha:true
                     });
-            var camera = new THREE.PerspectiveCamera(
-                    45,
-                    ASPECT,
-                    NEAR,
-                    FAR);
-            
-
-            
+           
+           //GLOBAL VARIABLES 
             var scene = new THREE.Scene();
             var caromFrame = {};
             var coins = [];
             var striker ;
-            //to remove the sticking effect from collisions ; making them better
+
+            //to remove the sticking effect from collisions ; making them smoother
             var coinPossibleCollision = [];
             var strikerPossibleCollisionWithCoins=[];
             var coinPossibleWalls = [];
             var strikerPossibleCollisionWalls = 0;
-
             //score
             var SCORE = 100;
+            //cameraMode 
+            var cameraMode = 0;     //0=> top view 1=> player view
 
             function init() {
                 addCaromFrame();
                 addInitCoins();
-                //     playerView();
                 scene.add(camera);
-                //pull the camera back
                 camera.position.z = 400;
 
                 //start the renderer
@@ -65,25 +60,27 @@
                 //attach the renderer-supplied DOM element
                 document.body.appendChild( renderer.domElement);
 
-            
-                //addCaromFrame();
-                //addInitCoins();
-                //            resetStriker();
-            
                 var pointLight = new THREE.PointLight(0xFFFFFF);
+                var pointLight2 = new THREE.PointLight(0xFF0000);
 
-                pointLight.position.x = 10;
-                pointLight.position.y = 50;
-                pointLight.position.z = 130;
+                pointLight.position.x = 120;
+                pointLight.position.y = 120;
+                pointLight.position.z = 150;
+
+                pointLight2.position.x = -120;
+                pointLight2.position.y = -120;
+                pointLight2.position.z = 150;
 
                 scene.add(pointLight);
-               // console.log("hello there");
+                scene.add(pointLight2);
+               
             }
 
             function addCaromFrame() {
 
                 //drawing side walls
-                var xs = [20, 200, 20, 200];
+                var xs = [20, 200, 20, 200];    //width and height of the board adjusted
+                                                //height of each to be considered to "20"
                 var ys = [200, 20, 200, 20];
                 var positionx = [-100, 0, 100, 0];
                 var positiony = [0, 100, 0, -100];
@@ -177,7 +174,7 @@
                         radius, 
                         radius,
                         height,
-                        40), new THREE.MeshLambertMaterial(
+                        35), new THREE.MeshLambertMaterial(
                         {
                             color: 0xFF0000
                         })
@@ -191,6 +188,7 @@
                 temp.vely = 0;
                 temp.power = 0;
                 temp.theta = 0;
+                temp.radius = 5;
                 temp.col = "red";
                 temp.isRemoved = 0;
                 scene.add(temp);
@@ -218,7 +216,7 @@
                                 radius,
                                 radius,
                                 height,
-                                40), new THREE.MeshLambertMaterial(
+                                35), new THREE.MeshLambertMaterial(
                                 {
                                     color: col
                                 })
@@ -230,8 +228,9 @@
                         circle.position.z = -3
                         circle.power = 0;
                         circle.velx = 0;
+                        circle.radius = radius;
                         circle.vely = 0;
-                        circle.theta = 0;
+                        circle.theta = theta;
                         if( col == 0xFFFFFF)
                             circle.col = "white";
                         else
@@ -247,12 +246,13 @@
                         8,
                         8,
                         7,
-                        40), new THREE.MeshLambertMaterial(
+                        35), new THREE.MeshLambertMaterial(
                         {
                             color: 0x00FF00
                         })
                     );
                 striker.rotation.x = 90;
+                striker.radius = 8;
                 scene.add(striker);
                 resetStriker();
 
@@ -278,7 +278,6 @@
             }
 
             function resetStriker () {
-                console.log("hello");
                 striker.position.y = -60;
                 striker.position.x = 0;
                 striker.isMoving = 0;
@@ -293,7 +292,7 @@
                 striker.line = new THREE.Line(
                     geometry, new THREE.LineBasicMaterial (
                     {
-                        color: 0x0000ff
+                        color: 0x0000FF
                     })
                 );
                 scene.add(striker.line);
@@ -312,7 +311,6 @@
                     striker.theta = 360 - striker.theta;
                     return 1;
                 }
-
                 return 0;
             }
 
@@ -324,14 +322,7 @@
             }
 
             function checkCollission(circle1, circle2, dist) {
-                var x1 = circle1.position.x;
-                var x2 = circle2.position.x;
-                var y1 = circle1.position.y;
-                var y2 = circle2.position.y;
-
-                if( Math.abs(Math.sqrt((x1 -x2)*(x1-x2) + (y1 - y2)*(y1-y2))) < dist) {
-                    //console.log("collision detected");
-
+                if( checkDist(circle1, circle2) < dist) {
                     collideObject(circle1, circle2);
                     return 1;
                 }
@@ -348,8 +339,8 @@
             }
 
             function collideObject(circle1, circle2) {
-                console.log(circle1, circle2);
-                var angleOfCollision = (180/Math.PI)*Math.atan((circle2.position.y - circle1.position.y)/(circle2.position.x - circle1.position.x));
+                //    console.log(circle1, circle2);
+                var angleOfCollision = (180/Math.PI)*Math.atan2((circle2.position.y - circle1.position.y), (circle2.position.x - circle1.position.x));
 
                 var angle1 = circle1.theta - angleOfCollision;
                 var angle2 = circle2.theta - angleOfCollision;
@@ -366,14 +357,20 @@
                 circle1.power = Math.sqrt( v1x*v1x + v1y*v1y);
                 circle2.power = Math.sqrt( v2x*v2x + v2y*v2y);
 
-                circle1.theta = angleOfCollision + (180/Math.PI)*Math.atan(v1y/v1x);
-                circle2.theta = angleOfCollision + (180/Math.PI)*Math.atan(v2y/v2x);
+                circle1.theta = angleOfCollision + (180/Math.PI)*Math.atan2(v1y, v1x);
+                circle2.theta = angleOfCollision + (180/Math.PI)*Math.atan2(v2y, v2x);
 
             }
 
             function update() {
                 keyboard.update();
 
+                if(cameraMode === 0)
+                    topView();
+                else if( cameraMode === 1) 
+                    playerView();
+
+                //checking collision of striker with walls
                 if(strikerPossibleCollisionWalls === 0) {
                     var flag = checkCollissionWithWalls(striker, 18);
                     if(flag === 1) {
@@ -387,14 +384,16 @@
                 }
 
 
+                //checking collision of striekr with pockets
                 for(var i=0; i<4; i++) {
-                    if(checkCollission(striker, caromFrame.circle[i], 10)) {
-
+                    if(checkCollission(striker, caromFrame.circle[i], striker.radius )) {
                         console.log("out ho gya bete");
                         SCORE -= 5;
                         resetStriker(); 
                     }
                 }
+
+                //checking collision of coins with walls
                 for( var i =0; i<coins.length; i++) {
                     if( coins[i].isRemoved === 1 )
                         continue;
@@ -411,31 +410,33 @@
                     }
                 }
 
+                //checking collision of striker with coins
                 for( var i = 0; i<coins.length; i++) {
 
                     if( coins[i].isRemoved === 1)
                         continue;
 
                     if(strikerPossibleCollisionWithCoins[i] === 0) {
-                        var flag = checkCollission(striker, coins[i], 13);
+                        var flag = checkCollission(striker, coins[i], striker.radius + coins[i].radius);
                         if( flag === 1) {
                             strikerPossibleCollisionWithCoins[i] = 1;
                         }
                     }   
                     else {
-                        if(checkDist(striker, coins[i]) > 13) {
+                        if(checkDist(striker, coins[i]) > striker.radius + coins[i].radius) {
                             strikerPossibleCollisionWithCoins[i] = 0;
                         }
                     }
                 }
 
+                //checking collision of coins with pockets
                 for( var i = 0; i < coins.length; i++ ) {
 
                     if( coins[i].isRemoved === 1)
                         continue;
 
                     for( var j = 0; j < 4; j++) {
-                        if( checkCollission(coins[i], caromFrame.circle[j], 7 ) ) {
+                        if( checkCollission(coins[i], caromFrame.circle[j], coins[i].radius ) ) {
                             scene.remove(coins[i]);
                             coins[i].isRemoved = 1;
                             if( coins[i].col == "white" ) {
@@ -449,6 +450,7 @@
                     }
                 }
 
+                //checking collisions among the coins
                 for(var i = 0; i < coins.length; i++) {
                     if( coins[i].isRemoved === 1) 
                         continue;
@@ -457,15 +459,15 @@
                         if ( coins[j].isRemoved === 1)
                             continue;
 
-                        if(i!=j) {
+                        if(i!= j) {
                             if( coinPossibleCollision[i][j] === 0) {
-                                var flag = checkCollission(coins[i], coins[j], 10);
+                                var flag = checkCollission(coins[i], coins[j], coins[i].radius + coins[j].radius);
                                 if( flag === 1) {
                                     coinPossibleCollision[i][j] = 1;
                                 }
                             }
                             else {
-                                if(checkDist(coins[i], coins[j]) > 10) {
+                                if(checkDist(coins[i], coins[j]) > coins[i].radius + coins[j].radius) {
                                     coinPossibleCollision[i][j] = 0;
                                 }
                             }
@@ -473,56 +475,58 @@
                     }
                 }
 
+                //moving the striker
                 if(striker.isMoving && striker.power > 0 ){
-                    if(striker.position.x  >= 90 && striker.velx > 0) {
+                    //if(striker.position.x  >= 90 && striker.velx > 0) {
 
-                    }
-                    else if( striker.position.x <= -90 && striker.velx < 0 ) {
+                   // }
+                   // else if( striker.position.x <= -90 && striker.velx < 0 ) {
 
-                    }
-                    else {
+                   // }
+                  //  else {
                     var angle = (Math.PI/180)*striker.theta;
 
                     striker.translateX(striker.power*Math.cos(angle));
                     striker.translateY(-1*striker.power*Math.sin(angle));
                     striker.position.z = -3;
-                    }
+                    
                     striker.power -= 0.02;
                 }
 
+                //reset the striker when it ceizes to move
                 if(striker.isMoving && striker.power <= 0 ) {
-                    console.log("the striker ceized");
+                    //console.log("the striker ceized");
                     resetStriker();
                 }
 
+                //moving the coins
                 for( var i = 0; i< coins.length; i++) {
-                  //  if(Math.abs(coins[i].position.x) <= 87 && Math.abs(coins[i].position.y) <= 87) {
                     if(coins[i].isRemoved === 1)
                         continue;
 
-                    if(coins[i].position.x  >= 90 && coins[i].velx > 0) {
-                        coins[i].theta += 90;
+                //          if(coins[i].position.x  >= 90 && coins[i].velx > 0) {
+                //             coins[i].theta += 90;
 
 
-                    }
-                    else if( coins[i].position.x <= -90 && coins[i].velx < 0 ) {
-                            coins[i].theta -= 90;
-                    }
-                    else {
+                   // }
+                  //  else if( coins[i].position.x <= -90 && coins[i].velx < 0 ) {
+                    //        coins[i].theta -= 90;
+                    //}
+                   // else {
                         var angle = (Math.PI/180)*coins[i].theta;
                         coins[i].translateX(coins[i].power*Math.cos(angle));
                         coins[i].translateY(-1*coins[i].power*Math.sin(angle));
                         coins[i].position.z = -3;
-                    }
+                   // }
                     
                     if(coins[i].power > 0)
                         coins[i].power -= 0.02;
 
                 }
 
-              //  console.log("hello");
-                if(keyboard.pressed("left")) {
-                    //console.log("balle balle");
+                //moving striker left when left arrow pressed
+                if(keyboard.pressed("left") && striker.isMoving == 0) {
+                    
                     if(striker.position.x > -65) {
                         striker.translateX(-1);
                         striker.line.translateX(-1);
@@ -530,21 +534,19 @@
 
                 }
 
-                if(keyboard.pressed("right")) {
+                //moving striker right when right arrow pressed
+                if(keyboard.pressed("right") && striker.isMoving == 0) {
                     if(striker.position.x < 65){
                         striker.translateX(1);
                         striker.line.translateX(1);
                     }
                 }
 
+                //rotating the line when a is pressed
                 if(keyboard.pressed("A") && striker.theta < 180) {
-                    //   console.log ("abe a record ho gya ");
-                    //var axis = new THREE.Vector3(0,0,1);
-                    //var angle = Math.PI/150;
-                    //striker.line.applyAxisAngle(axis, angle);
+
                     scene.remove(striker.line);
                     striker.theta += 1;
-                  //  striker.line.rotation.x = 10;
                     var angle = (Math.PI/180 )*striker.theta;
                     var geometry = new THREE.Geometry();
                     geometry.vertices.push(new THREE.Vector3(striker.position.x, striker.position.y, 0));
@@ -558,14 +560,11 @@
                     scene.add(striker.line);
                 }
 
+                //rotating line when d is pressed
                 if(keyboard.pressed("D") && striker.theta > 0) {
-                    //   console.log ("abe a record ho gya ");
-                    //var axis = new THREE.Vector3(0,0,1);
-                    //var angle = Math.PI/150;
-                    //striker.line.applyAxisAngle(axis, angle);
+
                     scene.remove(striker.line);
                     striker.theta -= 1;
-                  //  striker.line.rotation.x = 10;
                     var angle = (Math.PI/180 )*striker.theta;
                     var geometry = new THREE.Geometry();
                     geometry.vertices.push(new THREE.Vector3(striker.position.x, striker.position.y, 0));
@@ -579,10 +578,12 @@
                     scene.add(striker.line);
                 }
 
+                //increasing the power
                 if(keyboard.pressed("Z")) {
                     striker.power += 0.1;
-                }
+                }   
 
+                //hitting the striker
                 if(keyboard.down("F")) {
                     if(striker.power > 0) {
                         striker.isMoving = 1;
@@ -591,24 +592,20 @@
                         striker.translateX(striker.power * Math.cos(angle));
                         striker.translateY(-1*striker.power*Math.sin(angle));
                         striker.position.z = -3;
-                        console.log( "angle " + striker.theta);
+                       // console.log( "angle " + striker.theta);
                     }
+                }
+
+                //toggle between camera views
+                if(keyboard.down("T")) {
+                    cameraMode = (cameraMode + 1)%2;
+                    console.log("camera mode wanted to change");
                 }
 
                 document.getElementById('title').innerHTML = "score " + SCORE;
             }
 
             function render() {
-                // //update the picking ray with the camera and mouse position
-                // raycaster.setFromCamera(mouse, camera);
-
-                // //calculate objects intersecting the picking ray
-                // var intersects = raycaster.intersectObjects(scene.children);
-
-                // for( var i = 0; i < intersects.length; i++ ) {
-                //     intersects[i].object.material.color.set(0xff0000);
-                //     console.log(intersects[i]);
-                // }
                 update();
                 renderer.setClearColor(0xFFFFFF, 0);
                 renderer.render(scene, camera);
@@ -620,6 +617,12 @@
                 camera.lookAt(new THREE.Vector3(0,0,0));
             }
 
+            function topView() {
+                camera.position.set(0, 0, 400);
+                camera.up = new THREE.Vector3(0,1,0);
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+            }
+
             function animate() {
                 requestAnimationFrame(animate);
                 render();
@@ -629,8 +632,7 @@
 
 
             init();
-            animate();
-            
+            animate();            
         </script>
     </body>
 </html>
