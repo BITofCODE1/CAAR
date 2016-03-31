@@ -42,6 +42,11 @@
             var caromFrame = {};
             var coins = [];
             var striker ;
+            //to remove the sticking effect from collisions ; making them better
+            var coinPossibleCollision = [];
+            var strikerPossibleCollisionWithCoins=[];
+            var coinPossibleWalls = [];
+            var strikerPossibleCollisionWalls = 0;
 
             function init() {
                 addCaromFrame();
@@ -240,6 +245,26 @@
                 striker.rotation.x = 90;
                 scene.add(striker);
                 resetStriker();
+
+                //initializing the collision smoothing vectors
+                for( var i = 0; i < coins.length; i++ ) {
+                    var temp = [];
+                    for( var j = 0; j < coins.length; j++ ) {
+                        temp.push(0);
+                    }
+                    coinPossibleCollision.push(temp);
+                }
+
+                for( var i = 0; i < coins.length; i++ ) {
+                    coinPossibleWalls.push(0);
+                }
+
+                strikerPossibleCollisionWalls = 0;
+
+                //var temp = [];
+                for(var i = 0; i < coins.length; i++ ) {
+                    strikerPossibleCollisionWithCoins.push(0);
+                }
             }
 
             function resetStriker () {
@@ -265,18 +290,27 @@
             }
 
             function checkCollissionWithWalls(striker, dist) {
-
-
                 //collision with left
                 if( Math.abs(caromFrame.corners[0].position.x - striker.position.x) < dist || Math.abs(caromFrame.corners[2].position.x - striker.position.x) < dist) {
                    // console.log("What the hell");
                     striker.theta = 180 - striker.theta;
+                    return 1;
                 }
 
                 if(Math.abs(caromFrame.corners[1].position.y - striker.position.y) < dist || Math.abs(caromFrame.corners[3].position.y - striker.position.y )< dist) {
                    // console.log("what the double hell");
                     striker.theta = 360 - striker.theta;
+                    return 1;
                 }
+
+                return 0;
+            }
+
+            function checkOutWalls(circle, dist) {
+                if( Math.abs(caromFrame.corners[0].position.x - striker.position.x) > dist && Math.abs(caromFrame.corners[1].position.y - striker.position.y) > dist && Math.abs(caromFrame.corners[2].position.x - striker.position.x) > dist && Math.abs(caromFrame.corners[3].position.y - striker.position.y) > dist) {
+                    return 1;
+                }
+                return 0;
             }
 
             function checkCollission(circle1, circle2, dist) {
@@ -287,8 +321,20 @@
 
                 if( Math.abs(Math.sqrt((x1 -x2)*(x1-x2) + (y1 - y2)*(y1-y2))) < dist) {
                     //console.log("collision detected");
+
                     collideObject(circle1, circle2);
+                    return 1;
                 }
+                return 0;
+            }
+
+            function checkDist(circle1, circle2) {
+                var x1 = circle1.position.x;
+                var y1 = circle1.position.y;
+                var x2 = circle2.position.x;
+                var y2 = circle2.position.y;
+
+                return Math.sqrt((x1-x2)*(x1-x2)  + (y1-y2)*(y1-y2)); 
             }
 
             function collideObject(circle1, circle2) {
@@ -318,25 +364,68 @@
             function update() {
                 keyboard.update();
 
-                checkCollissionWithWalls(striker, 18);
+                if(strikerPossibleCollisionWalls === 0) {
+                    var flag = checkCollissionWithWalls(striker, 18);
+                    if(flag === 1) {
+                        strikerPossibleCollisionWalls = 1;
+                    }
+                }
+                else {
+                    if( checkOutWalls(striker, 19) ) {
+                        strikerPossibleCollisionWalls = 0;
+                    }
+                }
+
 
                 for(var i=0; i<4; i++) {
                     if(checkCollission(striker, caromFrame.circle[i], 15)) {
+
                         console.log("out ho gya bete");
                         resetStriker(); 
                     }
                 }
-                for( var i =0; i<coins.length; i++) 
-                    checkCollissionWithWalls(coins[i], 15);
+                for( var i =0; i<coins.length; i++) {
+                    if( coinPossibleWalls[i] === 0 ) {
+                        var flag = checkCollissionWithWalls(coins[i], 15);
+                        if(flag === 1) {
+                            coinPossibleWalls[i] = 1;
+                        }
+                    }
+                    else {
+                        if( checkOutWalls(coins[i], 16) ) {
+                            coinPossibleWalls[i] = 0;
+                        }
+                    }
+                }
 
-                for( var i = 0; i<coins.length; i++) {
-                    checkCollission(striker, coins[i], 13);
+                for( var i = 0; i<coins.length; i++) { 
+                    if(strikerPossibleCollisionWithCoins[i] === 0) {
+                        var flag = checkCollission(striker, coins[i], 13);
+                        if( flag === 1) {
+                            strikerPossibleCollisionWithCoins[i] = 1;
+                        }
+                    }   
+                    else {
+                        if(checkDist(striker, coins[i]) > 13) {
+                            strikerPossibleCollisionWithCoins[i] = 0;
+                        }
+                    }
                 }
 
                 for(var i = 0; i < coins.length; i++) {
                     for(j = 0; j<coins.length; j++) {
                         if(i!=j) {
-                            checkCollission(coins[i], coins[j], 10);
+                            if( coinPossibleCollision[i][j] === 0) {
+                                var flag = checkCollission(coins[i], coins[j], 10);
+                                if( flag === 1) {
+                                    coinPossibleCollision[i][j] = 1;
+                                }
+                            }
+                            else {
+                                if(checkDist(coins[i], coins[j]) > 10) {
+                                    coinPossibleCollision[i][j] = 0;
+                                }
+                            }
                         }
                     }
                 }
