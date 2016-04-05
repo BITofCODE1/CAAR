@@ -53,6 +53,8 @@
             var caromFrame = {};
             var coins = [];
             var striker ;
+            var isQueenPocketed = 0 ;
+            var countAfterQueen = 0;
 
             //to remove the sticking effect from collisions ; making them smoother
             var coinPossibleCollision = [];
@@ -182,6 +184,12 @@
                     caromFrame.centreCircle, 0x000000);
                 scene.add(caromFrame.centreCircleEdges);
                        
+            }
+            
+            function resetQueen() {
+                coins[0].isRemoved = 0;
+                coins[0].position.x = 0;
+                coins[0].position.y = 0;
             }
 
             function addInitCoins() {
@@ -501,6 +509,9 @@
                             if( coins[i].col == "white" ) {
                                 SCORE += 5;
                             }
+                            else if( coins[i].col == "red" ) {
+                                isQueenPocketed = 1;
+                            }
                             else
                                 SCORE -= 20;
 
@@ -630,6 +641,13 @@
 
                 //hitting the striker
                 if(keyboard.down("F") ) {
+                    if( isQueenPocketed === 1 && countAfterQueen === 0 ) {
+                        countAfterQueen = 1;
+                    }
+                    else if( isQueenPocketed === 1 && countAfterQueen === 1 ) {
+                        scene.add(coins[0]);
+                        resetQueen();
+                    }
                     releaseStriker();
                 }
 
